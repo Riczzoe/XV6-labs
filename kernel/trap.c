@@ -29,6 +29,82 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
+static void
+alarmstore(void)
+{
+  struct proc *p = myproc();
+  p->old_epc = p->trapframe->epc;
+  p->old_ra = p->trapframe->ra;
+  p->old_sp = p->trapframe->sp;
+  p->old_gp = p->trapframe->gp;
+  p->old_tp = p->trapframe->tp;
+  p->old_t0 = p->trapframe->t0;
+  p->old_t1 = p->trapframe->t1;
+  p->old_t2 = p->trapframe->t2;
+  p->old_s0 = p->trapframe->s0;
+  p->old_s1 = p->trapframe->s1;
+  p->old_a0 = p->trapframe->a0;
+  p->old_a1 = p->trapframe->a1;
+  p->old_a2 = p->trapframe->a2;
+  p->old_a3 = p->trapframe->a3;
+  p->old_a4 = p->trapframe->a4;
+  p->old_a5 = p->trapframe->a5;
+  p->old_a6 = p->trapframe->a6;
+  p->old_a7 = p->trapframe->a7;
+  p->old_s2 = p->trapframe->s2;
+  p->old_s3 = p->trapframe->s3;
+  p->old_s4 = p->trapframe->s4;
+  p->old_s5 = p->trapframe->s5;
+  p->old_s6 = p->trapframe->s6;
+  p->old_s7 = p->trapframe->s7;
+  p->old_s8 = p->trapframe->s8;
+  p->old_s9 = p->trapframe->s9;
+  p->old_s10 = p->trapframe->s10;
+  p->old_s11 = p->trapframe->s11;
+  p->old_t3 = p->trapframe->t3;
+  p->old_t4 = p->trapframe->t4;
+  p->old_t5 = p->trapframe->t5;
+  p->old_t6 = p->trapframe->t6;
+}
+
+
+void
+alarmrestore(void)
+{
+  struct proc *p = myproc();
+  p->trapframe->epc = p->old_epc;
+  p->trapframe->ra = p->old_ra;
+  p->trapframe->sp = p->old_sp;
+  p->trapframe->gp = p->old_gp;
+  p->trapframe->tp = p->old_tp;
+  p->trapframe->t0 = p->old_t0;
+  p->trapframe->t1 = p->old_t1;
+  p->trapframe->t2 = p->old_t2;
+  p->trapframe->s0 = p->old_s0;
+  p->trapframe->s1 = p->old_s1;
+  p->trapframe->a0 = p->old_a0;
+  p->trapframe->a1 = p->old_a1;
+  p->trapframe->a2 = p->old_a2;
+  p->trapframe->a3 = p->old_a3;
+  p->trapframe->a4 = p->old_a4;
+  p->trapframe->a5 = p->old_a5;
+  p->trapframe->a6 = p->old_a6;
+  p->trapframe->a7 = p->old_a7;
+  p->trapframe->s2 = p->old_s2;
+  p->trapframe->s3 = p->old_s3;
+  p->trapframe->s4 = p->old_s4;
+  p->trapframe->s5 = p->old_s5;
+  p->trapframe->s6 = p->old_s6;
+  p->trapframe->s7 = p->old_s7;
+  p->trapframe->s8 = p->old_s8;
+  p->trapframe->s9 = p->old_s9;
+  p->trapframe->s10 = p->old_s10;
+  p->trapframe->s11 = p->old_s11;
+  p->trapframe->t3 = p->old_t3;
+  p->trapframe->t4 = p->old_t4;
+  p->trapframe->t5 = p->old_t5;
+  p->trapframe->t6 = p->old_t6;
+}
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -93,8 +169,18 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
+    if (p->alarm_interval > 0) {
+        p->ticks += 1;
+        if (p->ishandler == 0 && p->ticks >= p->alarm_interval) {
+            p->ticks = 0;
+            alarmstore();
+            p->trapframe->epc = p->handler;
+            p->ishandler = 1;
+        }
+    }
     yield();
+  }
 
   usertrapret();
 }

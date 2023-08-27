@@ -104,4 +104,40 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int ishandler;
+  int alarm_interval;          // alarm interval
+  int ticks;                   // ticks
+  uint64 handler;              // alarm handler
+  uint64 old_epc;              // old epc
+  uint64 old_ra;
+  uint64 old_sp;
+  uint64 old_gp;
+  uint64 old_tp;
+  uint64 old_t0;
+  uint64 old_t1;
+  uint64 old_t2;
+  uint64 old_s0;
+  uint64 old_s1;
+  uint64 old_a0;
+  uint64 old_a1;
+  uint64 old_a2;
+  uint64 old_a3;
+  uint64 old_a4;
+  uint64 old_a5;
+  uint64 old_a6;
+  uint64 old_a7;
+  uint64 old_s2;
+  uint64 old_s3;
+  uint64 old_s4;
+  uint64 old_s5;
+  uint64 old_s6;
+  uint64 old_s7;
+  uint64 old_s8;
+  uint64 old_s9;
+  uint64 old_s10;
+  uint64 old_s11;
+  uint64 old_t3;
+  uint64 old_t4;
+  uint64 old_t5;
+  uint64 old_t6;
 };

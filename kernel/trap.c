@@ -36,6 +36,8 @@ trapinithart(void)
 void
 usertrap(void)
 {
+      /* printf("kinit: end = %p, PHYSTOP = %p, range = %p\n", end, (void*)PHYSTOP, (void*)(PHYSTOP - (uint64)end)); */
+
     int which_dev = 0;
 
     if((r_sstatus() & SSTATUS_SPP) != 0)
@@ -78,7 +80,7 @@ usertrap(void)
         // not a copy-on-write page
         if ((*pte & PTE_C) == 0) 
             goto cowerr;
-        uint64 ka = (uint64)kalloc();
+        char *ka = kalloc();
         if (ka == 0) {
             p->killed = 1;
         } else {
@@ -88,9 +90,10 @@ usertrap(void)
             uint64 flags = PTE_FLAGS(*pte);
             // remap the page to the new physical address, and add 
             // write permission to the page
-            uvmunmap(p->pagetable, va, 1, 0);
-            if (mappages(p->pagetable, va, PGSIZE, ka, flags | PTE_W) != 0)
+            uvmunmap(p->pagetable, PGROUNDDOWN(va), 1, 1);
+            if (mappages(p->pagetable, va, PGSIZE, (uint64)ka, flags | PTE_W) != 0)
                 kfree(ka);
+            kfree((char*)pa);
         }
     } else {
         goto usertraperr;

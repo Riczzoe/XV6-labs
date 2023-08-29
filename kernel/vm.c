@@ -337,18 +337,28 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
           panic("uvmcopy: pte should exist");
       if ((*pte & PTE_V) == 0)
           panic("uvmcopy: page not present");
-      flags = PET_FLAGS(*pte);
+      flags = PTE_FLAGS(*pte);
       pa = PTE2PA(*pte);
       if (flags & PTE_W) {
-          flags &= !PTE_W | PTE_C;
-          *pte &= flags;
+          flags &= (~PTE_W);
+          flags |= PTE_C;
+          uvmunmap(old, i, 1, 1);
+          if (mappages(old, i, PGSIZE, pa, flags) != 0)
+              goto olderr;
       }
       if (mappages(new, i, PGSIZE, pa, flags) != 0) 
-          goto err;
+          goto newerr;
   }
+  return 0;
 
-err:
-  uvmnumap(new, 0, i / PGSIZE, 1);
+olderr:
+  printf("uvmcopy: olderr\n");
+  uvmunmap(old, 0, i / PGSIZE, 1);
+  return -1;
+
+newerr:
+  printf("uvmcopy: newerr\n");
+  uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
 
 }

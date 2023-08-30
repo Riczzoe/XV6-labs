@@ -70,46 +70,16 @@ usertrap(void)
     } else if((which_dev = devintr()) != 0){
         // ok
     } else if (r_scause() == 15) {
-        // copy on write page fault
-        uint64 va = r_stval();
-        pte_t *pte = walk(p->pagetable, va, 0);
-        if (pte == 0)
-            panic("uvmcopy: pte should exist");
-        if((*pte & PTE_V) == 0)
-            panic("uvmcopy: page not present");
-        // not a copy-on-write page
-        if ((*pte & PTE_C) == 0) 
-            goto cowerr;
-        char *ka = kalloc();
-        if (ka == 0) {
-            p->killed = 1;
-        } else {
-            uint64 pa = PTE2PA(*pte);
-            // copy the read-only page and turn it into a cow page
-            memmove(ka, (char*)pa, PGSIZE);
-            uint64 flags = PTE_FLAGS(*pte);
-            // remap the page to the new physical address, and add 
-            // write permission to the page
-            uvmunmap(p->pagetable, PGROUNDDOWN(va), 1, 1);
-            if (mappages(p->pagetable, va, PGSIZE, (uint64)ka, flags | PTE_W) != 0)
-                kfree(ka);
-            kfree((char*)pa);
+        if (iscow(p->pagetable, r_stval()) < 0 ||
+            cowintr(p->pagetable, r_stval()) < 0) {
+            setkilled(p);
         }
     } else {
-        goto usertraperr;
+        printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+        printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+        setkilled(p);
     }
 
-    goto normal;
-
-cowerr:
-    printf("copy on write error\n");
-
-usertraperr:
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    setkilled(p);
-
-normal:
     if(killed(p))
         exit(-1);
 
@@ -195,6 +165,53 @@ kerneltrap()
     // so restore trap registers for use by kernelvec.S's sepc instruction.
     w_sepc(sepc);
     w_sstatus(sstatus);
+}
+
+int
+iscow(pagetable_t pagetable, uint64 va)
+{
+    pte_t *pte;
+
+    if (va >= MAXVA)
+        return -1;
+
+    pte = walk(pagetable, va, 0);
+    if (pte == 0)
+        return -1;
+    if((*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+        return -1;
+
+    // not a copy-on-write page
+    if ((*pte & PTE_C) == 0)
+        return -2;
+
+    return 0;
+}
+
+int
+cowintr(pagetable_t pagetable, uint64 va)
+{
+    char *ka;
+    uint64 pa, flags;
+    pte_t *pte;
+
+    ka = kalloc();
+    if (ka == 0)
+        return -1;
+
+    // copy the read-only page and turn it into a cow page
+    pte = walk(pagetable, va, 0);
+    pa = PTE2PA(*pte);
+    memmove(ka, (char*)pa, PGSIZE);
+
+    // remap the page to the new physical address, and add
+    // write permission to the page
+    flags = PTE_FLAGS(*pte);
+    *pte = PA2PTE((uint64)ka) | flags | PTE_W;
+    *pte &= ~PTE_C;
+    kfree((char*)pa);
+
+    return 0;
 }
 
 void
